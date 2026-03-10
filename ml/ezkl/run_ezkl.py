@@ -1,5 +1,6 @@
 import ezkl
 import asyncio
+import os
 
 MODEL_PATH    = "ml/model/packet_classifier.onnx"
 INPUT_PATH    = "ml/model/input_sample.json"
@@ -47,3 +48,8 @@ if result:
     print("PROOF VERIFIED - Packet is SAFE")
 else:
     print("FAILED")
+
+# os._exit() bypasses Python/Rust thread cleanup that triggers a segfault
+# during interpreter shutdown in some EZKL versions. All file I/O is already
+# flushed at this point so no data is lost.
+os._exit(0 if result else 1)
