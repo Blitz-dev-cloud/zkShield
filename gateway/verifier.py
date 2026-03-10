@@ -1,0 +1,83 @@
+import json
+import subprocess
+import ezkl
+import tempfile
+import os
+
+from gateway.nullifier_store import check_and_store_nullifier
+
+AUTH_VK_PATH = "zk-setup/auth_zkml_vk.json"
+ML_SETTINGS_PATH = "ml/ezkl/settings.json"
+ML_VK_PATH = "ml/ezkl/vk.key"
+ML_SRS_PATH = "ml/ezkl/kzg.srs"
+
+def verify_auth_proof(auth_proof_obj, auth_public_obj):
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as proof_file, \
+         tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as public_file:
+
+        json.dump(auth_proof_obj, proof_file)
+        json.dump(auth_public_obj, public_file)
+
+        proof_file_path = proof_file.name
+        public_file_path = public_file.name
+
+    try:
+        result = subprocess.run(
+            [
+                "snarkjs", "groth16", "verify",
+                AUTH_VK_PATH,
+                public_file_path,
+                proof_file_path
+            ],
+            capture_output=True,
+            text=True
+        )
+
+        stdout = result.stdout.strip()
+        stderr = result.stderr.strip()
+
+        if "OK" in stdout:
+            return True, "Auth proof valid"
+        return False, f"Auth proof invalid. stdout={stdout} stderr={stderr}"
+
+    finally:
+        if os.path.exists(proof_file_path):
+            os.remove(proof_file_path)
+        if os.path.exists(public_file_path):
+            os.remove(public_file_path)
+
+def verify_ml_proof(ml_proof_obj):
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as proof_file:
+        json.dump(ml_proof_obj, proof_file)
+        proof_file_path = proof_file.name
+
+    try:
+        result = ezkl.verify(
+            proof_file_path,
+            ML_SETTINGS_PATH,
+            ML_VK_PATH,
+            srs_path=ML_SRS_PATH
+        )
+
+        if result:
+            return True, "ML proof valid"
+        return False, "ML proof invalid"
+
+    finally:
+        if os.path.exists(proof_file_path):
+            os.remove(proof_file_path)
+
+def verify_packet(auth_proof, auth_public, ml_proof):
+    ok, msg = check_and_store_nullifier(auth_public)
+    if not ok:
+        return False, msg
+
+    ok, msg = verify_auth_proof(auth_proof, auth_public)
+    if not ok:
+        return False, msg
+
+    ok, msg = verify_ml_proof(ml_proof)
+    if not ok:
+        return False, msg
+
+    return True, "PASS"
