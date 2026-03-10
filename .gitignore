@@ -40,6 +40,10 @@ __pycache__/
 # -----------------------------
 build/
 **/build/
+artifacts/
+*.r1cs
+*.sym
+*.wasm
 circuits/build/
 circuits/**/*.r1cs
 circuits/**/*.sym
