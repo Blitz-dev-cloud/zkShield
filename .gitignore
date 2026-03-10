@@ -38,6 +38,8 @@ __pycache__/
 # -----------------------------
 # Circom / snarkjs generated artifacts
 # -----------------------------
+build/
+**/build/
 circuits/build/
 circuits/**/*.r1cs
 circuits/**/*.sym
@@ -50,6 +52,10 @@ circuits/**/*_js/
 # -----------------------------
 proofs/
 zk-setup/
+*.zkey
+*.ptau
+*vk*.json
+verification_key.json
 
 # -----------------------------
 # EZKL generated artifacts
