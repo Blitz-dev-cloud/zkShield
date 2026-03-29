@@ -26,9 +26,11 @@ ezkl.compile_circuit(MODEL_PATH, CIRCUIT_PATH, SETTINGS_PATH)
 print("Circuit done")
 
 print("[4/7] Getting SRS...")
-async def get_srs():
-    ezkl.get_srs(SETTINGS_PATH, srs_path=SRS_PATH)
-asyncio.run(get_srs())
+# Skip remote SRS fetch if SRS already exists (e.g., pre-generated in container)
+if not os.path.exists(SRS_PATH):
+    async def get_srs():
+        ezkl.get_srs(SETTINGS_PATH, srs_path=SRS_PATH)
+    asyncio.run(get_srs())
 print("SRS done")
 
 print("[5/7] Setup keys...")
