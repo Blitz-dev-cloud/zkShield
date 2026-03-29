@@ -33,11 +33,12 @@ export default function AboutPage() {
       initial="initial"
       animate="animate"
       variants={stagger}
-      className="max-w-4xl mx-auto space-y-8"
+      className="max-w-4xl mx-auto space-y-8 md:space-y-10"
     >
       {/* Header */}
       <motion.div variants={fadeInUp} className="space-y-4">
-        <h1 className="text-3xl font-bold text-foreground">
+        <span className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-primary">Protocol Anatomy</span>
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
           About zkShield<span className="text-primary">++</span>
         </h1>
         <p className="text-muted-foreground leading-relaxed max-w-2xl">

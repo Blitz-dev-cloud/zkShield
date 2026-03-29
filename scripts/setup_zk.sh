@@ -1,4 +1,9 @@
 #!/bin/bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
 echo "================================================"
 echo "  zkShield++ ZK Setup"
 echo "================================================"
@@ -15,7 +20,7 @@ snarkjs zkey export verificationkey zk-setup/auth_zkml_final.zkey zk-setup/auth_
 rm zk-setup/auth_zkml.zkey
 
 echo "[3/3] Running EZKL ML setup..."
-source venv/bin/activate
+source "$ROOT_DIR/venv/bin/activate"
 python3 ml/ezkl/run_ezkl.py
 
 echo "================================================"

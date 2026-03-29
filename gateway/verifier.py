@@ -4,14 +4,13 @@ import ezkl
 import tempfile
 import os
 
-from gateway.nullifier_store import check_and_store_nullifier
-
 AUTH_VK_PATH = "zk-setup/auth_zkml_vk.json"
 ML_SETTINGS_PATH = "ml/ezkl/settings.json"
 ML_VK_PATH = "ml/ezkl/vk.key"
 ML_SRS_PATH = "ml/ezkl/kzg.srs"
 
 def verify_auth_proof(auth_proof_obj, auth_public_obj):
+    """Verify user authorization using Groth16 pairing equations."""
     with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as proof_file, \
          tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as public_file:
 
@@ -47,6 +46,7 @@ def verify_auth_proof(auth_proof_obj, auth_public_obj):
             os.remove(public_file_path)
 
 def verify_ml_proof(ml_proof_obj):
+    """Verify packet safety proof via EZKL."""
     with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as proof_file:
         json.dump(ml_proof_obj, proof_file)
         proof_file_path = proof_file.name
@@ -66,18 +66,3 @@ def verify_ml_proof(ml_proof_obj):
     finally:
         if os.path.exists(proof_file_path):
             os.remove(proof_file_path)
-
-def verify_packet(auth_proof, auth_public, ml_proof):
-    ok, msg = check_and_store_nullifier(auth_public)
-    if not ok:
-        return False, msg
-
-    ok, msg = verify_auth_proof(auth_proof, auth_public)
-    if not ok:
-        return False, msg
-
-    ok, msg = verify_ml_proof(ml_proof)
-    if not ok:
-        return False, msg
-
-    return True, "PASS"

@@ -4,7 +4,8 @@ async function main() {
     const poseidon = await buildPoseidon();
     const F = poseidon.F;
 
-    const sk = BigInt(42);
+    const skArg = process.argv[2];
+    const sk = skArg ? BigInt(skArg) : BigInt(42);
 
     // commitment
     const c = F.toObject(poseidon([sk]));
@@ -37,6 +38,7 @@ async function main() {
     const fs = require("fs");
     fs.writeFileSync("circuits/auth_input.json", JSON.stringify(input, null, 2));
     console.log("\nSaved to circuits/auth_input.json");
+    console.log("secret_key:", sk.toString());
     console.log(JSON.stringify(input, null, 2));
 }
 

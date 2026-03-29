@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { motion } from "framer-motion"
 import { 
   Send, 
@@ -9,9 +10,13 @@ import {
   Cpu,
   Lock,
   GitBranch,
-  Binary
+  Binary,
+  Route,
+  Zap,
+  ChevronRight
 } from "lucide-react"
 import { DashboardCard, StatCard } from "@/components/dashboard-card"
+import { Button } from "@/components/ui/button"
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -33,20 +38,121 @@ export default function OverviewPage() {
       initial="initial"
       animate="animate"
       variants={stagger}
-      className="max-w-6xl mx-auto space-y-8"
+      className="max-w-6xl mx-auto space-y-8 md:space-y-10"
     >
       {/* Hero Section */}
-      <motion.div variants={fadeInUp} className="space-y-4">
-        <h1 className="text-4xl font-bold text-foreground">
-          zkShield<span className="text-primary">++</span>
+      <motion.div variants={fadeInUp} className="space-y-5">
+        <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-primary">
+          Production Dashboard
+        </div>
+        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-foreground">
+          zkShield<span className="text-primary">++</span> Control Center
         </h1>
-        <h2 className="text-xl text-muted-foreground">
+        <h2 className="text-lg md:text-2xl text-muted-foreground">
           Zero-Knowledge Network Firewall
         </h2>
-        <p className="text-muted-foreground max-w-2xl leading-relaxed">
+        <p className="text-muted-foreground max-w-3xl leading-relaxed text-base md:text-lg">
           A privacy-preserving firewall where packets prove identity and safety 
           using zero-knowledge cryptography. No secrets revealed, full verification.
         </p>
+      </motion.div>
+
+      {/* Quick Start: Integrated Workflow */}
+      <motion.div variants={fadeInUp}>
+        <DashboardCard className="border-primary/30 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
+          <div className="flex items-center gap-2 mb-6">
+            <Zap className="w-5 h-5 text-primary" />
+            <h3 className="text-lg font-semibold text-foreground">Quick Start: Full Workflow</h3>
+          </div>
+          
+          <p className="text-muted-foreground mb-6">
+            Complete end-to-end packet transfer with authorization and safety verification.
+          </p>
+
+          <div className="space-y-4">
+            {/* Step 1 */}
+            <div className="flex gap-4 items-start">
+              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0 mt-1">
+                1
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-foreground mb-1">Authorization (Groth16)</div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Generate auth proof with secret key. One-time per session.
+                </p>
+                <Link href="/transfer">
+                  <Button size="sm" variant="outline" className="gap-2">
+                    <Lock className="w-4 h-4" />
+                    Go to Transfer Page
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* Arrow */}
+            <div className="flex justify-center py-2">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <div className="w-1 h-1 rounded-full bg-muted-foreground" />
+                <div className="w-1 h-1 rounded-full bg-muted-foreground" />
+                <div className="w-1 h-1 rounded-full bg-muted-foreground" />
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="flex gap-4 items-start">
+              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0 mt-1">
+                2
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-foreground mb-1">Packet Generation (EZKL)</div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Send multiple packets with fresh ML proof for each. Prove packet safety.
+                </p>
+                <code className="text-xs bg-secondary/40 px-2 py-1 rounded text-foreground">
+                  Send unlimited packets with one auth
+                </code>
+              </div>
+            </div>
+
+            {/* Arrow */}
+            <div className="flex justify-center py-2">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <div className="w-1 h-1 rounded-full bg-muted-foreground" />
+                <div className="w-1 h-1 rounded-full bg-muted-foreground" />
+                <div className="w-1 h-1 rounded-full bg-muted-foreground" />
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="flex gap-4 items-start">
+              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0 mt-1">
+                3
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-foreground mb-1">Gateway Verification</div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Gateway verifies auth + ML proof using pairing equations. Returns PASS/DROP.
+                </p>
+                <code className="text-xs bg-secondary/40 px-2 py-1 rounded text-foreground">
+                  No replay attacks. Each packet must have fresh proof.
+                </code>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-primary/10 flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">
+              Start with Transfer page → click "Generate Auth" → Send packets
+            </p>
+            <Link href="/transfer">
+              <Button className="gap-2">
+                <Zap className="w-4 h-4" />
+                Open Workflow
+              </Button>
+            </Link>
+          </div>
+        </DashboardCard>
       </motion.div>
 
       {/* Architecture Flow */}
@@ -143,6 +249,30 @@ export default function OverviewPage() {
                 EZKL proves packet is safe according to a neural network model, 
                 without revealing packet contents or model weights.
               </p>
+            </div>
+          </div>
+        </DashboardCard>
+      </motion.div>
+
+      <motion.div variants={fadeInUp}>
+        <DashboardCard>
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-lg bg-primary/10 text-primary">
+              <Route className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-foreground mb-2">API Routes (GET + POST)</h4>
+              <p className="text-sm text-muted-foreground mb-4">
+                Frontend exposes explicit routes for generation, transfer, and verification.
+              </p>
+              <div className="space-y-2 text-sm">
+                <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 font-mono text-primary">GET /api/workflow</div>
+                <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 font-mono text-primary">GET /api/workflow/status</div>
+                <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 font-mono text-primary">GET|POST /api/workflow/auth</div>
+                <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 font-mono text-primary">GET|POST /api/workflow/generate</div>
+                <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 font-mono text-primary">GET|POST /api/workflow/send</div>
+                <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 font-mono text-primary">GET|POST /api/workflow/verify</div>
+              </div>
             </div>
           </div>
         </DashboardCard>

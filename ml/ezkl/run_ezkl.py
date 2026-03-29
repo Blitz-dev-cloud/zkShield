@@ -1,6 +1,7 @@
 import ezkl
 import asyncio
 import os
+import sys
 
 MODEL_PATH    = "ml/model/packet_classifier.onnx"
 INPUT_PATH    = "ml/model/input_sample.json"
@@ -52,4 +53,6 @@ else:
 # os._exit() bypasses Python/Rust thread cleanup that triggers a segfault
 # during interpreter shutdown in some EZKL versions. All file I/O is already
 # flushed at this point so no data is lost.
+sys.stdout.flush()
+sys.stderr.flush()
 os._exit(0 if result else 1)

@@ -15,7 +15,7 @@ export function DashboardCard({ children, className, hoverable = true }: Dashboa
     <motion.div
       whileHover={hoverable ? { y: -2 } : undefined}
       className={cn(
-        "bg-card rounded-xl border border-border p-6",
+        "console-frame glass-panel bg-card rounded-2xl border border-border/90 p-6",
         hoverable && "card-glow cursor-default",
         className
       )}

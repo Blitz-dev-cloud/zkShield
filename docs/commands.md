@@ -117,6 +117,42 @@ bash scripts/gen_proof.sh
 bash scripts/verify_proof.sh
 ```
 
+## Frontend Integration (Dashboard)
+
+```bash
+# Terminal 1: project root (proof backend artifacts)
+cd ~/Desktop/zkShield++/circuits/circom/zkShield
+source venv/bin/activate
+
+# Terminal 2: frontend app
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000` and use:
+
+- **Generate** page → calls `POST /api/workflow/generate` → runs `scripts/gen_proof.sh`
+- **Send Packet** (on Generate page) → calls `POST /api/workflow/send` → forwards payload + proofs to gateway
+- **Verify** page → calls `POST /api/workflow/verify` → runs `scripts/verify_proof.sh`
+
+### Start gateway for real packet requests
+
+```bash
+cd ~/Desktop/zkShield++/circuits/circom/zkShield
+source venv/bin/activate
+python3 -m gateway.gateway
+```
+
+### API test (optional)
+
+```bash
+# From frontend directory while dev server is running
+curl -X POST http://localhost:3000/api/workflow/generate
+curl -X POST http://localhost:3000/api/workflow/send -H "Content-Type: application/json" -d '{"payload":"hello gateway"}'
+curl -X POST http://localhost:3000/api/workflow/verify
+```
+
 ## Expected Outputs
 
 ### Successful compilation:

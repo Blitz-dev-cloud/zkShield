@@ -1,35 +1,44 @@
-# v0-zk-shield-dashboard
+# zkShield++ Frontend Dashboard
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+Next.js dashboard for the zkShield++ workflow.
 
-## Built with v0
+## What is integrated
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+The UI is connected to real proof scripts through API routes:
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_GVsneuL5fKwkcKAxnEQ3i638thtY)
+- `GET /api/workflow` → list all workflow endpoints and quick-start payloads
+- `GET /api/workflow/status` → check proof artifact availability + gateway reachability
+- `POST /api/workflow/generate` → runs `../scripts/gen_proof.sh`
+- `POST /api/workflow/verify` → runs `../scripts/verify_proof.sh`
+- `POST /api/workflow/send` → loads generated proofs and forwards packet to gateway `/packet`
 
-## Getting Started
+Each of these also supports `GET` at the same path to return route metadata and payload/response shape.
 
-First, run the development server:
+Pages:
+
+- `/generate` triggers proof generation and shows logs + public inputs
+- `/generate` also sends packet payload to gateway with generated proofs
+- `/transfer` provides a dedicated packet transfer console (status + route map + send form)
+- `/verify` triggers firewall verification and shows PASS/DROP
+
+## Run locally
+
+From repo root (one-time prerequisites):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+source venv/bin/activate
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+From frontend directory:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000).
 
-To learn more, take a look at the following resources:
+## Notes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
-
-<a href="https://v0.app/chat/api/kiro/clone/mishtimattu21/v0-zk-shield-dashboard" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
+- API routes run in Node runtime and spawn bash scripts in the repo root.
+- Ensure required artifacts/keys exist (`zk-setup/`, `ml/ezkl/`, `proofs/`) before verification.

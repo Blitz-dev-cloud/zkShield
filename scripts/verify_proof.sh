@@ -1,4 +1,9 @@
 #!/bin/bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
 echo "================================================"
 echo "  zkShield++ Proof Verification (Firewall)"
 echo "================================================"
@@ -10,9 +15,10 @@ snarkjs groth16 verify \
     proofs/auth_proof.json
 
 echo "[2/2] Verifying ML proof (EZKL)..."
-source venv/bin/activate
+source "$ROOT_DIR/venv/bin/activate"
 python3 -c "
 import ezkl
+import sys
 result = ezkl.verify(
     'ml/ezkl/proof.json',
     'ml/ezkl/settings.json',
@@ -23,6 +29,7 @@ if result:
     print('ML Proof: VERIFIED - Packet is SAFE')
 else:
     print('ML Proof: FAILED')
+    sys.exit(1)
 "
 
 echo "================================================"

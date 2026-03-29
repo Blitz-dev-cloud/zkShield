@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  ArrowRight
+  AlertTriangle
 } from "lucide-react"
 import { DashboardCard } from "@/components/dashboard-card"
 import { Button } from "@/components/ui/button"
@@ -23,10 +23,17 @@ interface VerificationState {
   verdict: Verdict
 }
 
-const mockPublicInputs = {
-  merkle_root: "0x1af89a23bc4f12de89ab32cd1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
-  nullifier_hash: "0x3bc912aaef45678901234567890abcdef0123456789abcdef0123456789abcd",
-  packet_commitment: "0x89acbb21de56789012345678901234567890abcdef0123456789abcdef012345"
+type VerifyResponse = {
+  ok: boolean
+  authStatus: VerificationStatus
+  mlStatus: VerificationStatus
+  verdict: Verdict
+  authPublic: {
+    root: string | null
+    nullifierHash: string | null
+  }
+  logs: string
+  error?: string
 }
 
 export default function VerifyPage() {
@@ -36,49 +43,51 @@ export default function VerifyPage() {
     verdict: null
   })
   const [isRunning, setIsRunning] = useState(false)
+  const [result, setResult] = useState<VerifyResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const runVerification = async () => {
     setIsRunning(true)
     setState({ authStatus: "pending", mlStatus: "pending", verdict: null })
+    setError(null)
+    setResult(null)
+    setState({ authStatus: "verifying", mlStatus: "verifying", verdict: null })
 
-    // Step 1: Auth Proof Verification
-    await new Promise(r => setTimeout(r, 500))
-    setState(s => ({ ...s, authStatus: "verifying" }))
-    
-    await new Promise(r => setTimeout(r, 1500))
-    const authOk = Math.random() > 0.2
-    setState(s => ({ ...s, authStatus: authOk ? "ok" : "failed" }))
+    try {
+      const response = await fetch("/api/workflow/verify", {
+        method: "POST",
+      })
 
-    if (!authOk) {
-      setState(s => ({ ...s, mlStatus: "failed", verdict: "drop" }))
+      const data = (await response.json()) as VerifyResponse
+      setResult(data)
+
+      setState({
+        authStatus: data.authStatus,
+        mlStatus: data.mlStatus,
+        verdict: data.verdict,
+      })
+
+      if (!data.ok) {
+        setError(data.error ?? "Verification failed")
+      }
+    } catch {
+      setState({ authStatus: "failed", mlStatus: "failed", verdict: "drop" })
+      setError("Request failed while running verification")
+    } finally {
       setIsRunning(false)
-      return
     }
-
-    // Step 2: ML Proof Verification
-    await new Promise(r => setTimeout(r, 500))
-    setState(s => ({ ...s, mlStatus: "verifying" }))
-    
-    await new Promise(r => setTimeout(r, 1500))
-    const mlOk = Math.random() > 0.2
-    setState(s => ({ 
-      ...s, 
-      mlStatus: mlOk ? "ok" : "failed",
-      verdict: mlOk ? "pass" : "drop"
-    }))
-
-    setIsRunning(false)
   }
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-4xl mx-auto space-y-8"
+      className="max-w-4xl mx-auto space-y-8 md:space-y-10"
     >
       {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-foreground">Firewall Verification</h1>
+      <div className="space-y-3">
+        <span className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-primary">Verifier Stage</span>
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">Firewall Verification</h1>
         <p className="text-muted-foreground">
           Simulate firewall verification of packet proofs.
         </p>
@@ -137,24 +146,41 @@ export default function VerifyPage() {
         )}
       </AnimatePresence>
 
+      {error && (
+        <DashboardCard hoverable={false} className="border-2 border-destructive/50 bg-destructive/5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-destructive">Verification failed</h3>
+              <p className="text-sm text-muted-foreground mt-1">{error}</p>
+            </div>
+          </div>
+        </DashboardCard>
+      )}
+
       {/* Public Inputs */}
       <DashboardCard hoverable={false}>
         <h3 className="text-lg font-semibold mb-4 text-foreground">Public Inputs</h3>
         <div className="space-y-3 font-mono text-sm">
           <div className="flex flex-col gap-1">
             <span className="text-muted-foreground">merkle_root:</span>
-            <span className="text-primary break-all">{mockPublicInputs.merkle_root}</span>
+            <span className="text-primary break-all">{result?.authPublic.root ?? "—"}</span>
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-muted-foreground">nullifier_hash:</span>
-            <span className="text-primary break-all">{mockPublicInputs.nullifier_hash}</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-muted-foreground">packet_commitment:</span>
-            <span className="text-primary break-all">{mockPublicInputs.packet_commitment}</span>
+            <span className="text-primary break-all">{result?.authPublic.nullifierHash ?? "—"}</span>
           </div>
         </div>
       </DashboardCard>
+
+      {result?.logs && (
+        <DashboardCard hoverable={false}>
+          <h3 className="text-lg font-semibold mb-3 text-foreground">Verification Logs</h3>
+          <pre className="text-xs text-muted-foreground bg-secondary/40 p-4 rounded-lg overflow-x-auto whitespace-pre-wrap">
+            {result.logs}
+          </pre>
+        </DashboardCard>
+      )}
     </motion.div>
   )
 }

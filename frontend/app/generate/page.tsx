@@ -9,12 +9,13 @@ import {
   CheckCircle2,
   Loader2,
   Package,
-  Send
+  Send,
+  AlertTriangle
 } from "lucide-react"
 import { DashboardCard } from "@/components/dashboard-card"
 import { Button } from "@/components/ui/button"
 
-type GenerationStatus = "pending" | "generating" | "generated"
+type GenerationStatus = "pending" | "generating" | "generated" | "failed"
 
 interface GenerationState {
   authStatus: GenerationStatus
@@ -22,10 +23,36 @@ interface GenerationState {
   packetReady: boolean
 }
 
-function generateMockProofId(): string {
-  return "0x" + Array.from({ length: 16 }, () => 
-    Math.floor(Math.random() * 16).toString(16)
-  ).join("")
+type GenerateResponse = {
+  ok: boolean
+  authStatus: GenerationStatus
+  mlStatus: GenerationStatus
+  packetReady: boolean
+  authPublic: {
+    root: string | null
+    nullifierHash: string | null
+  }
+  artifacts: {
+    authProof: string
+    authPublic: string
+    mlProof: string
+  }
+  logs: string
+  error?: string
+}
+
+type SendResponse = {
+  ok: boolean
+  gatewayUrl?: string
+  statusCode?: number
+  result?: {
+    status?: string
+    message?: string
+    payload?: string
+    raw?: string
+  }
+  logs?: string
+  error?: string
 }
 
 export default function GeneratePage() {
@@ -35,42 +62,87 @@ export default function GeneratePage() {
     packetReady: false
   })
   const [isRunning, setIsRunning] = useState(false)
-  const [proofIds, setProofIds] = useState<{auth: string, ml: string} | null>(null)
+  const [result, setResult] = useState<GenerateResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [payload, setPayload] = useState("Hello from zkShield frontend")
+  const [gatewayUrl, setGatewayUrl] = useState("http://127.0.0.1:5001/packet")
+  const [isSending, setIsSending] = useState(false)
+  const [sendResult, setSendResult] = useState<SendResponse | null>(null)
 
   const generateProofs = async () => {
     setIsRunning(true)
     setState({ authStatus: "pending", mlStatus: "pending", packetReady: false })
-    setProofIds(null)
+    setResult(null)
+    setError(null)
+    setState({ authStatus: "generating", mlStatus: "generating", packetReady: false })
 
-    // Step 1: Generate Auth Proof
-    await new Promise(r => setTimeout(r, 300))
-    setState(s => ({ ...s, authStatus: "generating" }))
-    
-    await new Promise(r => setTimeout(r, 1200))
-    const authProofId = generateMockProofId()
-    setState(s => ({ ...s, authStatus: "generated" }))
+    try {
+      const response = await fetch("/api/workflow/generate", {
+        method: "POST",
+      })
 
-    // Step 2: Generate ML Proof
-    await new Promise(r => setTimeout(r, 300))
-    setState(s => ({ ...s, mlStatus: "generating" }))
-    
-    await new Promise(r => setTimeout(r, 1500))
-    const mlProofId = generateMockProofId()
-    setState(s => ({ ...s, mlStatus: "generated", packetReady: true }))
+      const data = (await response.json()) as GenerateResponse
+      setResult(data)
 
-    setProofIds({ auth: authProofId, ml: mlProofId })
-    setIsRunning(false)
+      if (data.ok) {
+        setState({
+          authStatus: "generated",
+          mlStatus: "generated",
+          packetReady: true,
+        })
+      } else {
+        setState({
+          authStatus: "failed",
+          mlStatus: "failed",
+          packetReady: false,
+        })
+        setError(data.error ?? "Proof generation failed")
+      }
+    } catch {
+      setState({
+        authStatus: "failed",
+        mlStatus: "failed",
+        packetReady: false,
+      })
+      setError("Request failed while generating proofs")
+    } finally {
+      setIsRunning(false)
+    }
+  }
+
+  const sendPacket = async () => {
+    setIsSending(true)
+    setSendResult(null)
+
+    try {
+      const response = await fetch("/api/workflow/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payload, gatewayUrl }),
+      })
+
+      const data = (await response.json()) as SendResponse
+      setSendResult(data)
+    } catch {
+      setSendResult({
+        ok: false,
+        error: "Failed to reach frontend send API",
+      })
+    } finally {
+      setIsSending(false)
+    }
   }
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-4xl mx-auto space-y-8"
+      className="max-w-4xl mx-auto space-y-8 md:space-y-10"
     >
       {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-foreground">Proof Generation</h1>
+      <div className="space-y-3">
+        <span className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-primary">Prover Lab</span>
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">Proof Generation</h1>
         <p className="text-muted-foreground">
           Simulate sender generating zero-knowledge proofs.
         </p>
@@ -118,7 +190,7 @@ export default function GeneratePage() {
 
       {/* Packet Ready */}
       <AnimatePresence>
-        {state.packetReady && proofIds && (
+        {state.packetReady && result && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -144,12 +216,20 @@ export default function GeneratePage() {
                   </div>
                   <div className="space-y-2 font-mono text-sm">
                     <div className="flex flex-col gap-1">
-                      <span className="text-muted-foreground">auth_proof_id:</span>
-                      <span className="text-primary break-all">{proofIds.auth}</span>
+                      <span className="text-muted-foreground">auth_proof:</span>
+                      <span className="text-primary break-all">{result.artifacts.authProof}</span>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-muted-foreground">ml_proof_id:</span>
-                      <span className="text-primary break-all">{proofIds.ml}</span>
+                      <span className="text-muted-foreground">ml_proof:</span>
+                      <span className="text-primary break-all">{result.artifacts.mlProof}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground">merkle_root:</span>
+                      <span className="text-primary break-all">{result.authPublic.root ?? "—"}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground">nullifier_hash:</span>
+                      <span className="text-primary break-all">{result.authPublic.nullifierHash ?? "—"}</span>
                     </div>
                   </div>
                 </div>
@@ -159,10 +239,89 @@ export default function GeneratePage() {
                 <Send className="w-4 h-4" />
                 <span className="text-sm">Ready to send to firewall for verification</span>
               </div>
+
+              <div className="mt-4 space-y-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Gateway URL</label>
+                  <input
+                    value={gatewayUrl}
+                    onChange={(e) => setGatewayUrl(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    placeholder="http://127.0.0.1:5001/packet"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Packet Payload</label>
+                  <textarea
+                    value={payload}
+                    onChange={(e) => setPayload(e.target.value)}
+                    className="w-full min-h-24 rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    placeholder="Enter packet payload"
+                  />
+                </div>
+
+                <Button
+                  onClick={sendPacket}
+                  disabled={isSending}
+                  className="gap-2"
+                >
+                  {isSending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Send Packet to Gateway
+                    </>
+                  )}
+                </Button>
+
+                {sendResult && (
+                  <div className={`rounded-lg border px-3 py-2 text-sm ${sendResult.ok ? "border-success/40 bg-success/10 text-success" : "border-destructive/40 bg-destructive/10 text-destructive"}`}>
+                    <div className="font-semibold">{sendResult.ok ? "Gateway accepted packet (PASS)" : "Gateway rejected packet (DROP)"}</div>
+                    <div className="mt-1 text-xs break-all text-muted-foreground">
+                      status={sendResult.statusCode ?? "—"} · {sendResult.result?.message ?? sendResult.error ?? "No message"}
+                    </div>
+                  </div>
+                )}
+              </div>
             </DashboardCard>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {error && (
+        <DashboardCard hoverable={false} className="border-2 border-destructive/50 bg-destructive/5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-destructive">Generation failed</h3>
+              <p className="text-sm text-muted-foreground mt-1">{error}</p>
+            </div>
+          </div>
+        </DashboardCard>
+      )}
+
+      {result?.logs && (
+        <DashboardCard hoverable={false}>
+          <h3 className="text-lg font-semibold mb-3 text-foreground">Workflow Logs</h3>
+          <pre className="text-xs text-muted-foreground bg-secondary/40 p-4 rounded-lg overflow-x-auto whitespace-pre-wrap">
+            {result.logs}
+          </pre>
+        </DashboardCard>
+      )}
+
+      {sendResult?.logs && (
+        <DashboardCard hoverable={false}>
+          <h3 className="text-lg font-semibold mb-3 text-foreground">Gateway Delivery Logs</h3>
+          <pre className="text-xs text-muted-foreground bg-secondary/40 p-4 rounded-lg overflow-x-auto whitespace-pre-wrap">
+            {sendResult.logs}
+          </pre>
+        </DashboardCard>
+      )}
 
       {/* Info Card */}
       <DashboardCard hoverable={false}>
@@ -239,6 +398,12 @@ function StatusIndicator({ status }: { status: GenerationStatus }) {
       text: "text-success",
       label: "Generated",
       icon: <CheckCircle2 className="w-4 h-4" />
+    },
+    failed: {
+      bg: "bg-destructive/10",
+      text: "text-destructive",
+      label: "Failed",
+      icon: <AlertTriangle className="w-4 h-4" />
     }
   }
 

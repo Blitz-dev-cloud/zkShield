@@ -51,6 +51,9 @@ zkShield++/
 │   ├── gen_proof.sh          ← generates both proofs
 │   └── verify_proof.sh       ← firewall simulation (verify both proofs)
 │
+├── frontend/                 ← Next.js dashboard (Generate/Verify UI)
+│   └── app/api/workflow/     ← API routes wired to project scripts
+│
 ├── proofs/                   ← generated proof files (gitignored)
 ├── zk-setup/                 ← zkeys, ptau, vk files (gitignored)
 └── docs/                     ← architecture, protocol spec, threat model
@@ -217,6 +220,40 @@ ML Proof: VERIFIED - Packet is SAFE
 
 ---
 
+## Frontend Dashboard (Integrated)
+
+The `frontend/` app now calls real backend workflow scripts (not mock data).
+
+### Run dashboard
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`:
+
+- **Generate page** calls `POST /api/workflow/generate`
+  - executes `scripts/gen_proof.sh`
+  - returns proof statuses + `root` + `nullifier_hash` + logs
+  - supports **Send Packet** to gateway using generated proofs
+
+- **Verify page** calls `POST /api/workflow/verify`
+  - executes `scripts/verify_proof.sh`
+  - returns auth/ML verification status + PASS/DROP verdict + logs
+
+- **Send API** (`POST /api/workflow/send`)
+  - reads generated proof artifacts from disk
+  - forwards payload + proofs to gateway `/packet`
+
+The API routes are server-side Node handlers in:
+
+- `frontend/app/api/workflow/generate/route.ts`
+- `frontend/app/api/workflow/verify/route.ts`
+
+---
+
 ## Circuit Details
 
 ### `auth_zkml.circom` — Unified Auth Circuit
@@ -294,3 +331,239 @@ $$e(A, B) = e(\alpha, \beta) \cdot e(C, \gamma) \cdot e(\text{inputs}, \delta)$$
 | ML framework | PyTorch + ONNX |
 | ML ZK proofs | [EZKL](https://github.com/zkonduit/ezkl) (KZG polynomial commitments) |
 | Elliptic curve | BN128 (BN254) |
+
+---
+
+## 🎯 CLI Tool (New!)
+
+### Installation
+
+The CLI provides a command-line interface for all zkShield++ operations without needing the browser UI.
+
+```bash
+# Install dependencies
+pip install click click-help-colors requests
+
+# Make executable
+chmod +x cli.py
+```
+
+### Basic Usage
+
+```bash
+# Authorize (one-time)
+python3 cli.py auth --secret-key mykey
+
+# Send packet
+python3 cli.py send --session-id <ID> --payload "hello"
+
+# Check status
+python3 cli.py status --check-gateway
+
+# Generate proofs
+python3 cli.py generate --secret-key mykey
+
+# Verify locally
+python3 cli.py verify
+```
+
+### Commands
+
+| Command | Purpose |
+|---------|---------|
+| `auth` | Authorize with gateway (creates session) |
+| `send` | Send authenticated packet through firewall |
+| `generate` | Generate all proofs (auth + ML) |
+| `status` | Check artifacts and gateway reachability |
+| `verify` | Verify proofs locally |
+| `config` | Manage configuration (~/.zkshield/config.json) |
+
+**Full Documentation**: See [docs/CLI.md](docs/CLI.md)
+
+### Example Workflow
+
+```bash
+# Terminal 1: Start gateway
+python3 gateway/gateway.py
+
+# Terminal 2: Authorize
+SID=$(python3 cli.py auth | grep "session_id:" | cut -d' ' -f2)
+
+# Send packets
+for i in {1..5}; do
+    python3 cli.py send --session-id "$SID" --payload "packet $i"
+done
+
+# Check status
+python3 cli.py status --check-gateway
+```
+
+---
+
+## 🚀 Gateway Server
+
+The gateway is the firewall verifier. It receives packets and makes pass/drop decisions using the two ZK verification keys.
+
+### Start Gateway
+
+```bash
+python3 gateway/gateway.py
+```
+
+Default: `http://127.0.0.1:5001`
+
+**Routes:**
+- `POST /auth` — Authorize user (creates session)
+- `POST /packet` — Send packet (requires valid session + ML proof)
+- `GET /health` — Health check
+
+**Request/Response Examples:**
+
+Auth:
+```bash
+curl -X POST http://127.0.0.1:5001/auth \
+  -H "Content-Type: application/json" \
+  -d '{ "auth_proof": {...}, "auth_public": [...] }'
+# Response: { "session_id": "...", "user_nullifier": "..." }
+```
+
+Send Packet:
+```bash
+curl -X POST http://127.0.0.1:5001/packet \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payload": "hello",
+    "session_id": "...",
+    "ml_proof": {...}
+  }'
+# Response: { "status": "PASS", "message": "...", "payload": "hello" }
+```
+
+---
+
+## 📚 Documentation
+
+| Document | Contents |
+|----------|----------|
+| [docs/PROTOCOL.md](docs/PROTOCOL.md) | Full protocol specification, cryptography, API details |
+| [docs/CLI.md](docs/CLI.md) | CLI tool reference with examples and workflows |
+| [docs/SETUP.md](docs/SETUP.md) | Development setup, local testing, production deployment |
+| [docs/architecture.md](docs/architecture.md) | System design and data flow |
+| [docs/protocol-spec.md](docs/protocol-spec.md) | Circuit details and crypto primitives |
+| [docs/threat-model.md](docs/threat-model.md) | Security analysis and attack surface |
+
+---
+
+## 🔄 Complete End-to-End Demo
+
+Run all phases automatically:
+
+```bash
+bash scripts/demo.sh
+```
+
+Or step by step:
+
+```bash
+# 1. ML pipeline (dataset → train → export)
+python3 ml/dataset/generate_dataset.py
+python3 ml/model/train_model.py
+python3 ml/model/export_onnx.py
+python3 ml/ezkl/run_ezkl.py
+
+# 2. ZK setup (compile → trusted setup)
+bash scripts/setup_zk.sh
+
+# 3. Start gateway
+python3 gateway/gateway.py &
+
+# 4. Frontend
+cd frontend && npm run dev &
+
+# 5. CLI test
+python3 cli.py auth && python3 cli.py send --session-id <SID>
+```
+
+---
+
+## 🐳 Docker Deployment (New!)
+
+### Quick Start
+
+```bash
+docker-compose up -d
+```
+
+Includes:
+- Gateway (Python)
+- Frontend (Next.js)
+- Redis (session state)
+- Nginx (reverse proxy)
+
+For production deployment instructions, see [docs/SETUP.md](docs/SETUP.md).
+
+---
+
+## 📊 Performance
+
+| Operation | Time | Notes |
+|-----------|------|-------|
+| Auth proof generation | 2-5s | snarkjs on laptop CPU |
+| ML proof generation | 10-30s | EZKL/model-dependent |
+| Auth verification | <100ms | Pairing equations |
+| ML verification | <100ms | KZG commitment check |
+| Packet throughput | 100-500/sec | Per session, HW-dependent |
+
+---
+
+## 🔧 Troubleshooting
+
+### Gateway not starting
+```bash
+# Check port usage
+lsof -i :5001
+
+# Kill existing process
+kill -9 <PID>
+
+# Try different port
+GATEWAY_PORT=5002 python3 gateway/gateway.py
+```
+
+### Proof generation fails
+```bash
+# Reinstall Node tools
+npm install -g snarkjs circom
+
+# Regenerate artifacts
+bash scripts/setup_zk.sh
+```
+
+### EZKL import error
+```bash
+# Upgrade EZKL
+pip install --upgrade ezkl
+
+# Test directly
+python3 ml/ezkl/run_ezkl.py
+```
+
+For more issues, see [docs/SETUP.md#troubleshooting](docs/SETUP.md#troubleshooting).
+
+---
+
+## 📄 License
+
+Apache 2.0 — See LICENSE for details.
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! See CONTRIBUTING.md for guidelines.
+
+---
+
+**Version**: 0.1.0  
+**Status**: Alpha — actively developed  
+**Maintained by**: zkShield++ Team

@@ -68,6 +68,51 @@ Packet features x (private)              Merkle root (public)
    any FAIL → drop packet
 ```
 
+## Frontend Integration (Next.js Dashboard)
+
+The `frontend/` app is now wired to the real proving scripts through server-side
+API routes (Node runtime):
+
+```
+frontend UI (Generate / Verify pages)
+            │  fetch("/api/workflow/*")
+            ▼
+Next.js route handlers (frontend/app/api/workflow/*)
+            │  spawn("bash", ["scripts/gen_proof.sh" | "scripts/verify_proof.sh"])
+            ▼
+Project scripts/ (Groth16 + EZKL CLI pipeline)
+            │
+            ▼
+Artifacts on disk:
+   - proofs/auth_proof.json
+   - proofs/auth_public.json
+   - ml/ezkl/proof.json
+```
+
+### API Endpoints
+
+- `POST /api/workflow/generate`
+   - Runs `scripts/gen_proof.sh`
+   - Returns generation status, public inputs (`root`, `nullifier_hash`), artifact paths, and logs
+
+- `POST /api/workflow/verify`
+   - Runs `scripts/verify_proof.sh`
+   - Returns verification statuses (`authStatus`, `mlStatus`), final verdict (`pass`/`drop`), public inputs, and logs
+
+- `POST /api/workflow/send`
+   - Loads `proofs/auth_proof.json`, `proofs/auth_public.json`, `ml/ezkl/proof.json`
+   - Sends packet + proofs to gateway endpoint (`/packet`)
+   - Returns gateway PASS/DROP response and delivery logs
+
+### Script Hardening for API Execution
+
+The shell scripts are configured for backend execution reliability:
+
+- `set -euo pipefail` enabled (fail fast with proper non-zero exit codes)
+- Script-local root resolution (`ROOT_DIR=.../..`) so they work from any CWD
+- Explicit virtualenv activation path (`source "$ROOT_DIR/venv/bin/activate"`)
+- ML verification exits non-zero on failure (frontend receives correct failure state)
+
 ## Security Properties
 
 | Property | Mechanism |

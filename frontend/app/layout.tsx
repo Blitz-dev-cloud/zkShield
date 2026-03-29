@@ -1,18 +1,20 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, JetBrains_Mono } from 'next/font/google'
+import { Manrope, IBM_Plex_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { Sidebar } from '@/components/sidebar'
 
-const inter = Inter({ 
+const manrope = Manrope({
   subsets: ["latin"],
-  variable: '--font-inter'
-});
+  variable: '--font-manrope',
+  weight: ['400', '500', '600', '700'],
+})
 
-const jetbrainsMono = JetBrains_Mono({ 
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  variable: '--font-jetbrains'
-});
+  variable: '--font-ibm',
+  weight: ['400', '500', '600'],
+})
 
 export const metadata: Metadata = {
   title: 'zkShield++ | Zero-Knowledge Network Firewall',
@@ -48,10 +50,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
-        <div className="flex min-h-screen circuit-bg">
+      <body className={`${manrope.variable} ${ibmPlexMono.variable} font-sans antialiased`}>
+        <div className="relative flex min-h-screen overflow-hidden circuit-bg">
+          <div aria-hidden className="ambient-orb ambient-orb-cyan" />
+          <div aria-hidden className="ambient-orb ambient-orb-orange" />
+          <div aria-hidden className="scanline-overlay" />
           <Sidebar />
-          <main className="flex-1 ml-64 p-8">
+          <main className="relative z-10 flex-1 px-4 pt-6 pb-24 md:ml-72 md:px-10 md:pt-8 md:pb-8">
             {children}
           </main>
         </div>
