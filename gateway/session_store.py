@@ -1,57 +1,94 @@
-import json
 import os
 import secrets
 import time
 import hmac
 import hashlib
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
-SESSION_FILE = "gateway/auth_sessions.json"
-
-
-def _load_sessions() -> Dict[str, Any]:
-    if not os.path.exists(SESSION_FILE):
-        return {}
-    with open(SESSION_FILE, "r") as f:
-        data = json.load(f)
-    return data if isinstance(data, dict) else {}
+import redis
 
 
-def _save_sessions(sessions: Dict[str, Any]) -> None:
-    with open(SESSION_FILE, "w") as f:
-        json.dump(sessions, f, indent=2)
+def _require_env(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+REDIS_URL = _require_env("ZKSHIELD_REDIS_URL")
+SESSION_TTL_SECONDS = int(os.environ.get("ZKSHIELD_SESSION_TTL_SECONDS", "3600"))
+NONCE_TTL_SECONDS = int(os.environ.get("ZKSHIELD_NONCE_TTL_SECONDS", str(SESSION_TTL_SECONDS)))
+MAX_CLOCK_SKEW_SECONDS = int(os.environ.get("ZKSHIELD_MAX_CLOCK_SKEW_SECONDS", "30"))
+
+_redis = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+
+_ATOMIC_REPLAY_SCRIPT = """
+local session_key = KEYS[1]
+local nonce_key = KEYS[2]
+local sequence = tonumber(ARGV[1])
+local nonce = ARGV[2]
+local nonce_ttl = tonumber(ARGV[3])
+
+if redis.call('EXISTS', session_key) == 0 then
+  return 'INVALID_SESSION'
+end
+
+local last_sequence = tonumber(redis.call('HGET', session_key, 'last_sequence') or '0')
+if sequence <= last_sequence then
+  return 'REPLAY_SEQUENCE'
+end
+
+if redis.call('SISMEMBER', nonce_key, nonce) == 1 then
+  return 'REPLAY_NONCE'
+end
+
+redis.call('HSET', session_key, 'last_sequence', tostring(sequence))
+redis.call('SADD', nonce_key, nonce)
+redis.call('EXPIRE', nonce_key, nonce_ttl)
+
+return 'OK'
+"""
+
+
+def _session_key(session_id: str) -> str:
+    return f"zkshield:session:{session_id}"
+
+
+def _nonce_key(session_id: str) -> str:
+    return f"zkshield:session_nonces:{session_id}"
 
 
 def create_session(user_nullifier: str):
-    sessions = _load_sessions()
     session_id = secrets.token_hex(16)
     session_key = secrets.token_hex(32)
-    sessions[session_id] = {
-        "user_nullifier": user_nullifier,
-        "session_key": session_key,
-        "created_at": int(time.time()),
-        "last_sequence": 0,
-        "used_nonces": []
-    }
-    _save_sessions(sessions)
+
+    key = _session_key(session_id)
+    _redis.hset(
+        key,
+        mapping={
+            "user_nullifier": user_nullifier,
+            "session_key": session_key,
+            "created_at": str(int(time.time())),
+            "last_sequence": "0",
+        },
+    )
+    _redis.expire(key, SESSION_TTL_SECONDS)
     return session_id, session_key
 
 
 def has_session(session_id: str) -> bool:
-    sessions = _load_sessions()
-    return session_id in sessions
+    return _redis.exists(_session_key(session_id)) == 1
 
 
-def get_session(session_id: str):
-    sessions = _load_sessions()
-    return sessions.get(session_id)
+def get_session(session_id: str) -> Optional[Dict[str, Any]]:
+    values = _redis.hgetall(_session_key(session_id))
+    return values or None
 
 
 def verify_and_update_packet_envelope(session_id: str, payload_hash: str, packet_meta: Dict[str, Any]):
     """Verify packet signature/nonce/sequence and update replay state."""
-    sessions = _load_sessions()
-    session = sessions.get(session_id)
-    if not session:
+    session = get_session(session_id)
+    if session is None:
         return False, "Invalid or expired session"
 
     required = ["sequence", "nonce", "timestamp", "signature"]
@@ -67,15 +104,8 @@ def verify_and_update_packet_envelope(session_id: str, payload_hash: str, packet
     except Exception:
         return False, "Invalid packet_meta field types"
 
-    if sequence <= int(session.get("last_sequence", 0)):
-        return False, "Replay detected: sequence must be strictly increasing"
-
-    used_nonces = set(session.get("used_nonces", []))
-    if nonce in used_nonces:
-        return False, "Replay detected: nonce already used"
-
     now = int(time.time())
-    if abs(now - timestamp) > 30:
+    if abs(now - timestamp) > MAX_CLOCK_SKEW_SECONDS:
         return False, "Stale packet timestamp"
 
     signing_input = f"{session_id}|{sequence}|{nonce}|{timestamp}|{payload_hash}"
@@ -88,18 +118,30 @@ def verify_and_update_packet_envelope(session_id: str, payload_hash: str, packet
     if not hmac.compare_digest(expected_sig, signature):
         return False, "Invalid packet signature"
 
-    # Keep nonce window bounded.
-    next_nonces = list(used_nonces)
-    next_nonces.append(nonce)
-    if len(next_nonces) > 2000:
-        next_nonces = next_nonces[-2000:]
+    result = _redis.eval(
+        _ATOMIC_REPLAY_SCRIPT,
+        2,
+        _session_key(session_id),
+        _nonce_key(session_id),
+        sequence,
+        nonce,
+        NONCE_TTL_SECONDS,
+    )
 
-    session["last_sequence"] = sequence
-    session["used_nonces"] = next_nonces
-    sessions[session_id] = session
-    _save_sessions(sessions)
+    if result == "REPLAY_SEQUENCE":
+        return False, "Replay detected: sequence must be strictly increasing"
+    if result == "REPLAY_NONCE":
+        return False, "Replay detected: nonce already used"
+    if result == "INVALID_SESSION":
+        return False, "Invalid or expired session"
+    if result != "OK":
+        return False, "Session replay state update failed"
+
     return True, "Packet envelope verified"
 
 
 def clear_sessions() -> None:
-    _save_sessions({})
+    keys = list(_redis.scan_iter("zkshield:session:*"))
+    nonce_keys = list(_redis.scan_iter("zkshield:session_nonces:*") )
+    if keys or nonce_keys:
+        _redis.delete(*(keys + nonce_keys))

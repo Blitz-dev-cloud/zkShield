@@ -6,6 +6,8 @@ import { resolveRepoRoot } from "@/lib/workflow"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+const DEFAULT_GATEWAY_HEALTH_URL = process.env.ZKSHIELD_GATEWAY_HEALTH_URL?.trim() || "http://127.0.0.1:5001/health"
+
 async function exists(filePath: string): Promise<boolean> {
   try {
     await access(filePath)
@@ -30,7 +32,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const gatewayUrl =
-    url.searchParams.get("gatewayUrl")?.trim() || "http://127.0.0.1:5001/health"
+    url.searchParams.get("gatewayUrl")?.trim() || DEFAULT_GATEWAY_HEALTH_URL
 
   let gatewayReachable = false
   let gatewayStatusCode: number | null = null

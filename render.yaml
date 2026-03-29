@@ -1,0 +1,59 @@
+services:
+  - type: redis
+    name: zkshield-redis
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+
+  - type: web
+    name: zkshield-relay
+    env: docker
+    dockerfilePath: ./Dockerfile.relay
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: ZKSHIELD_FORWARD_SIGNING_KEY
+        sync: false
+      - key: ZKSHIELD_FORWARD_TTL_SECONDS
+        value: "30"
+      - key: ZKSHIELD_RELAY_ALLOWED_HOSTS
+        sync: false
+
+  - type: web
+    name: zkshield-gateway
+    env: docker
+    dockerfilePath: ./Dockerfile.gateway
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: ZKSHIELD_FORWARD_SIGNING_KEY
+        sync: false
+      - key: ZKSHIELD_RELAY_URL
+        sync: false
+      - key: ZKSHIELD_REDIS_URL
+        fromService:
+          type: redis
+          name: zkshield-redis
+          property: connectionString
+      - key: ZKSHIELD_SESSION_TTL_SECONDS
+        value: "3600"
+      - key: ZKSHIELD_NONCE_TTL_SECONDS
+        value: "3600"
+      - key: ZKSHIELD_MAX_CLOCK_SKEW_SECONDS
+        value: "30"
+
+  - type: web
+    name: zkshield-frontend
+    env: docker
+    dockerfilePath: ./frontend/Dockerfile
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /api/workflow/status
+    envVars:
+      - key: ZKSHIELD_GATEWAY_AUTH_URL
+        sync: false
+      - key: ZKSHIELD_GATEWAY_PACKET_URL
+        sync: false
+      - key: ZKSHIELD_GATEWAY_HEALTH_URL
+        sync: false

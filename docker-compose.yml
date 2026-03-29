@@ -1,0 +1,81 @@
+services:
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  relay:
+    build:
+      context: .
+      dockerfile: Dockerfile.relay
+    env_file:
+      - .env
+    environment:
+      ZKSHIELD_FORWARD_SIGNING_KEY: ${ZKSHIELD_FORWARD_SIGNING_KEY}
+      ZKSHIELD_FORWARD_TTL_SECONDS: ${ZKSHIELD_FORWARD_TTL_SECONDS:-30}
+      ZKSHIELD_RELAY_ALLOWED_HOSTS: ${ZKSHIELD_RELAY_ALLOWED_HOSTS}
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "5100:5100"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5100/health', timeout=2)\""]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    env_file:
+      - .env
+    environment:
+      ZKSHIELD_FORWARD_SIGNING_KEY: ${ZKSHIELD_FORWARD_SIGNING_KEY}
+      ZKSHIELD_RELAY_URL: ${ZKSHIELD_RELAY_URL:-http://relay:5100/forward}
+      ZKSHIELD_REDIS_URL: ${ZKSHIELD_REDIS_URL:-redis://redis:6379/0}
+      ZKSHIELD_SESSION_TTL_SECONDS: ${ZKSHIELD_SESSION_TTL_SECONDS:-3600}
+      ZKSHIELD_NONCE_TTL_SECONDS: ${ZKSHIELD_NONCE_TTL_SECONDS:-3600}
+      ZKSHIELD_MAX_CLOCK_SKEW_SECONDS: ${ZKSHIELD_MAX_CLOCK_SKEW_SECONDS:-30}
+    depends_on:
+      redis:
+        condition: service_healthy
+      relay:
+        condition: service_healthy
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health', timeout=2)\""]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      ZKSHIELD_GATEWAY_AUTH_URL: ${ZKSHIELD_GATEWAY_AUTH_URL:-http://gateway:5001/auth}
+      ZKSHIELD_GATEWAY_PACKET_URL: ${ZKSHIELD_GATEWAY_PACKET_URL:-http://gateway:5001/packet}
+      ZKSHIELD_GATEWAY_HEALTH_URL: ${ZKSHIELD_GATEWAY_HEALTH_URL:-http://gateway:5001/health}
+    depends_on:
+      gateway:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/workflow/status >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped

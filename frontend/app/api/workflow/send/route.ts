@@ -6,6 +6,8 @@ import { readJsonFile, resolveRepoRoot, runBashScript, tailLogs } from "@/lib/wo
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+const DEFAULT_GATEWAY_PACKET_URL = process.env.ZKSHIELD_GATEWAY_PACKET_URL?.trim() || "http://127.0.0.1:5001/packet"
+
 type HttpRequestPacket = {
   method?: string
   url?: string
@@ -46,7 +48,7 @@ export async function GET() {
     postBody: {
       payload: "string | object (optional)",
       destination: "string (required, target service URL)",
-      gatewayUrl: "string (optional, default http://127.0.0.1:5001/packet)",
+      gatewayUrl: `string (optional, default ${DEFAULT_GATEWAY_PACKET_URL})`,
       sessionId: "string (required, from /api/workflow/auth)",
       sessionKey: "string (required, from /api/workflow/auth)",
       packetSequence: "number (required, must increase per packet)",
@@ -147,7 +149,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const gatewayUrl = body.gatewayUrl?.trim() || "http://127.0.0.1:5001/packet"
+    const gatewayUrl = body.gatewayUrl?.trim() || DEFAULT_GATEWAY_PACKET_URL
     const requestMode = body.requestMode ?? "text"
 
     let payload: unknown = "Hello from zkShield frontend"

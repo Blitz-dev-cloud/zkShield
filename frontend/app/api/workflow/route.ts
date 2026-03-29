@@ -3,6 +3,9 @@ import { NextResponse } from "next/server"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+const DEFAULT_GATEWAY_AUTH_URL = process.env.ZKSHIELD_GATEWAY_AUTH_URL?.trim() || "http://127.0.0.1:5001/auth"
+const DEFAULT_GATEWAY_PACKET_URL = process.env.ZKSHIELD_GATEWAY_PACKET_URL?.trim() || "http://127.0.0.1:5001/packet"
+
 export async function GET() {
   return NextResponse.json({
     service: "zkShield++ workflow API",
@@ -44,7 +47,7 @@ export async function GET() {
         path: "/api/workflow/auth",
         body: {
           secretKey: "optional-auto-generated",
-          gatewayUrl: "http://127.0.0.1:5001/auth",
+          gatewayUrl: DEFAULT_GATEWAY_AUTH_URL,
         },
       },
       send: {
@@ -53,7 +56,7 @@ export async function GET() {
         body: {
           sessionId: "from /api/workflow/auth",
           payload: "hello gateway",
-          gatewayUrl: "http://127.0.0.1:5001/packet",
+          gatewayUrl: DEFAULT_GATEWAY_PACKET_URL,
         },
       },
       verify: {

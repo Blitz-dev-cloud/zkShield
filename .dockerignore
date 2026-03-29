@@ -1,0 +1,36 @@
+.git
+.gitignore
+.vscode
+.idea
+
+# Local environments and caches
+.venv
+venv
+env
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+
+# Local secrets
+.env
+.env.*
+
+# Large or local-only outputs
+proofs
+build
+**/build
+artifacts
+
+# Frontend local deps/build outputs (frontend has its own Dockerfile context)
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/dist
+
+# Misc
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db

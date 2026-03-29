@@ -11,14 +11,26 @@ import requests
 
 app = Flask(__name__)
 
-FORWARD_SIGNING_KEY = os.environ.get("ZKSHIELD_FORWARD_SIGNING_KEY", "dev-forward-key-change-me")
+def _require_env(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+FORWARD_SIGNING_KEY = _require_env("ZKSHIELD_FORWARD_SIGNING_KEY")
 FORWARD_TTL_SECONDS = int(os.environ.get("ZKSHIELD_FORWARD_TTL_SECONDS", "30"))
-ALLOWED_HOSTS_RAW = os.environ.get("ZKSHIELD_RELAY_ALLOWED_HOSTS", "*")
+ALLOWED_HOSTS_RAW = _require_env("ZKSHIELD_RELAY_ALLOWED_HOSTS")
 
 
 def _allowed_hosts():
     raw = [item.strip() for item in ALLOWED_HOSTS_RAW.split(",") if item.strip()]
-    return set(raw)
+    hosts = set(raw)
+    if not hosts:
+        raise RuntimeError("ZKSHIELD_RELAY_ALLOWED_HOSTS must include at least one hostname")
+    if "*" in hosts:
+        raise RuntimeError("Wildcard '*' is not allowed for ZKSHIELD_RELAY_ALLOWED_HOSTS in production mode")
+    return hosts
 
 
 def _destination_allowed(destination: str) -> bool:

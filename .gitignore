@@ -15,6 +15,13 @@ pnpm-debug.log*
 *.temp
 
 # -----------------------------
+# Environment and secrets
+# -----------------------------
+.env
+.env.*
+!.env.example
+
+# -----------------------------
 # OS / editor noise
 # -----------------------------
 .DS_Store

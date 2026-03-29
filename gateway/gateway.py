@@ -20,8 +20,15 @@ else:
 
 app = Flask(__name__)
 
-RELAY_URL = os.environ.get("ZKSHIELD_RELAY_URL", "http://127.0.0.1:5100/forward")
-FORWARD_SIGNING_KEY = os.environ.get("ZKSHIELD_FORWARD_SIGNING_KEY", "dev-forward-key-change-me")
+def _require_env(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+RELAY_URL = _require_env("ZKSHIELD_RELAY_URL")
+FORWARD_SIGNING_KEY = _require_env("ZKSHIELD_FORWARD_SIGNING_KEY")
 
 
 def _validate_destination(destination):

@@ -6,6 +6,8 @@ import { readJsonFile, resolveRepoRoot, runBashScript, tailLogs } from "@/lib/wo
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+const DEFAULT_GATEWAY_AUTH_URL = process.env.ZKSHIELD_GATEWAY_AUTH_URL?.trim() || "http://127.0.0.1:5001/auth"
+
 type AuthProof = Record<string, unknown>
 type AuthPublic = string[]
 
@@ -26,7 +28,7 @@ export async function GET() {
     description: "Generate auth proof from secret key and authorize user once at gateway",
     postBody: {
       secretKey: "string (optional, auto-generated if omitted)",
-      gatewayUrl: "string (optional, default http://127.0.0.1:5001/auth)",
+      gatewayUrl: `string (optional, default ${DEFAULT_GATEWAY_AUTH_URL})`,
     },
     returns: {
       ok: "boolean",
@@ -45,7 +47,7 @@ export async function POST(request: Request) {
     const repoRoot = resolveRepoRoot()
 
     const secretKey = body.secretKey?.trim() || generateSecretKey()
-    const gatewayUrl = body.gatewayUrl?.trim() || "http://127.0.0.1:5001/auth"
+    const gatewayUrl = body.gatewayUrl?.trim() || DEFAULT_GATEWAY_AUTH_URL
 
     const authResult = await runBashScript(repoRoot, "scripts/gen_proof.sh", ["auth-only", secretKey])
     if (authResult.code !== 0) {
