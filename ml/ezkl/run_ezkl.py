@@ -1,5 +1,4 @@
 import ezkl
-import asyncio
 import os
 import sys
 
@@ -26,9 +25,10 @@ ezkl.compile_circuit(MODEL_PATH, CIRCUIT_PATH, SETTINGS_PATH)
 print("Circuit done")
 
 print("[4/7] Getting SRS...")
-async def get_srs():
-    ezkl.get_srs(SETTINGS_PATH, srs_path=SRS_PATH)
-asyncio.run(get_srs())
+if not os.path.exists(SRS_PATH):
+    raise RuntimeError(
+        f"Missing local SRS file at {SRS_PATH}. Bundle ml/ezkl/kzg.srs in the image."
+    )
 print("SRS done")
 
 print("[5/7] Setup keys...")
