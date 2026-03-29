@@ -68,6 +68,13 @@ zk-setup/
 *vk*.json
 verification_key.json
 
+# Keep minimal runtime proving/verification artifacts tracked for hosted workflow.
+!circuits/build/auth_zkml_js/
+!circuits/build/auth_zkml_js/generate_witness.js
+!circuits/build/auth_zkml_js/auth_zkml.wasm
+!zk-setup/auth_zkml_final.zkey
+!zk-setup/auth_zkml_vk.json
+
 # -----------------------------
 # EZKL generated artifacts
 # -----------------------------
