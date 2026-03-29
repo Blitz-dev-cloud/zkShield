@@ -22,6 +22,14 @@ build
 **/build
 artifacts
 
+# Required runtime artifacts for hosted workflow API
+!circuits/build/
+!circuits/build/**
+!zk-setup/
+!zk-setup/**
+!proofs/
+!proofs/**
+
 # Frontend local deps/build outputs (frontend has its own Dockerfile context)
 frontend/node_modules
 frontend/.next

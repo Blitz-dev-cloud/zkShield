@@ -28,6 +28,7 @@ COPY frontend/package.json /app/frontend/package.json
 RUN cd frontend && npm install
 
 COPY . /app
+RUN mkdir -p /app/proofs
 RUN cd frontend && npm run build
 
 EXPOSE 3000
