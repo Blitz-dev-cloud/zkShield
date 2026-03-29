@@ -46,7 +46,7 @@ services:
   - type: web
     name: zkshield-frontend
     env: docker
-    dockerfilePath: ./frontend/Dockerfile
+    dockerfilePath: ./Dockerfile.frontend-workflow
     plan: starter
     autoDeploy: true
     healthCheckPath: /api/workflow/status

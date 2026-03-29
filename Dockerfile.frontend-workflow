@@ -7,7 +7,12 @@ WORKDIR /app
 
 # Node + npm are required for Next.js and compute_inputs.js; snarkjs is required for Groth16 proof/verify scripts.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl nodejs npm \
+    && apt-get install -y --no-install-recommends bash ca-certificates curl gnupg build-essential \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
     && npm install -g snarkjs \
     && rm -rf /var/lib/apt/lists/*
 
