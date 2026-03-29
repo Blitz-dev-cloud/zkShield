@@ -1,17 +1,9 @@
 services:
-  - type: redis
-    name: zkshield-redis
-    plan: starter
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: allow all
-
   - type: web
     name: zkshield-relay
     env: docker
     dockerfilePath: ./Dockerfile.relay
-    plan: starter
+    plan: free
     autoDeploy: true
     healthCheckPath: /health
     envVars:
@@ -26,7 +18,7 @@ services:
     name: zkshield-gateway
     env: docker
     dockerfilePath: ./Dockerfile.gateway
-    plan: starter
+    plan: free
     autoDeploy: true
     healthCheckPath: /health
     envVars:
@@ -35,10 +27,7 @@ services:
       - key: ZKSHIELD_RELAY_URL
         sync: false
       - key: ZKSHIELD_REDIS_URL
-        fromService:
-          type: redis
-          name: zkshield-redis
-          property: connectionString
+        sync: false
       - key: ZKSHIELD_SESSION_TTL_SECONDS
         value: "3600"
       - key: ZKSHIELD_NONCE_TTL_SECONDS
@@ -50,7 +39,7 @@ services:
     name: zkshield-frontend
     env: docker
     dockerfilePath: ./Dockerfile.frontend-workflow
-    plan: starter
+    plan: free
     autoDeploy: true
     healthCheckPath: /api/workflow/status
     envVars:
