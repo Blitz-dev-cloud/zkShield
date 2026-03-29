@@ -280,7 +280,12 @@ def receive_packet():
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok"}), 200
+    skip_ml_verify = os.environ.get("ZKSHIELD_SKIP_ML_VERIFY", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    return jsonify({"status": "ok", "skip_ml_verify": skip_ml_verify}), 200
 
 
 if __name__ == "__main__":
