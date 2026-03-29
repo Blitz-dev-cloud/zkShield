@@ -29,6 +29,11 @@ def _require_env(name: str) -> str:
 
 RELAY_URL = _require_env("ZKSHIELD_RELAY_URL")
 FORWARD_SIGNING_KEY = _require_env("ZKSHIELD_FORWARD_SIGNING_KEY")
+ALLOW_DIRECT_FORWARD_FALLBACK = os.environ.get("ZKSHIELD_DIRECT_FORWARD_FALLBACK", "false").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 
 def _validate_destination(destination):
@@ -141,6 +146,10 @@ def _forward_via_relay(session_id, destination, payload_hash, forward_request):
         return None, "Relay forward failed: no response"
 
     if relay_res.status_code >= 400 or not relay_json.get("ok", False):
+        if ALLOW_DIRECT_FORWARD_FALLBACK:
+            direct_result, direct_error = _forward_direct(forward_request)
+            if not direct_error:
+                return direct_result, None
         if relay_json.get("error"):
             return None, relay_json.get("error")
         if relay_json.get("raw"):
@@ -149,6 +158,48 @@ def _forward_via_relay(session_id, destination, payload_hash, forward_request):
         return None, f"Relay forward failed with status {relay_res.status_code}"
 
     return relay_json.get("forwarded_response"), None
+
+
+def _forward_direct(forward_request):
+    mode = str(forward_request.get("mode", "")).lower()
+    destination = str(forward_request.get("destination", ""))
+
+    try:
+        if mode == "http":
+            method = str(forward_request.get("method", "GET")).upper()
+            headers = forward_request.get("headers") or {}
+            body = forward_request.get("body")
+
+            if not isinstance(headers, dict):
+                return None, "forward_request.headers must be an object"
+
+            res = http_requests.request(
+                method=method,
+                url=destination,
+                headers=headers,
+                data=body,
+                timeout=20,
+            )
+        elif mode == "raw":
+            payload_json = forward_request.get("json")
+            if payload_json is None:
+                return None, "forward_request.json is required for raw mode"
+
+            res = http_requests.post(destination, json=payload_json, timeout=20)
+            method = "POST"
+        else:
+            return None, f"Unsupported forward mode: {mode}"
+    except Exception as exc:
+        return None, f"Direct forward failed: {exc}"
+
+    return {
+        "upstream_url": destination,
+        "upstream_method": method,
+        "status_code": res.status_code,
+        "headers": dict(res.headers),
+        "body_hash": hashlib.sha256(res.text.encode()).hexdigest(),
+        "content_type": res.headers.get("content-type", ""),
+    }, None
 
 
 @app.route("/auth", methods=["POST"])
