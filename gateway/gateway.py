@@ -107,26 +107,46 @@ def _build_raw_forward_request(payload, destination, packet_meta, payload_hash):
 
 def _forward_via_relay(session_id, destination, payload_hash, forward_request):
     token = _create_forward_token(session_id, destination, payload_hash)
-    try:
-        relay_res = http_requests.post(
-            RELAY_URL,
-            json={
-                "forward_token": token,
-                "forward_request": forward_request,
-            },
-            timeout=10,
-        )
-    except Exception as exc:
-        return None, f"Relay unreachable: {exc}"
-
+    attempts = 4
+    relay_res = None
     relay_json = {}
-    try:
-        relay_json = relay_res.json()
-    except Exception:
-        relay_json = {"raw": relay_res.text}
+
+    for attempt in range(attempts):
+        try:
+            relay_res = http_requests.post(
+                RELAY_URL,
+                json={
+                    "forward_token": token,
+                    "forward_request": forward_request,
+                },
+                timeout=20,
+            )
+        except Exception as exc:
+            if attempt < attempts - 1:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            return None, f"Relay unreachable: {exc}"
+
+        if relay_res.status_code in (502, 503, 504) and attempt < attempts - 1:
+            time.sleep(1.5 * (attempt + 1))
+            continue
+
+        try:
+            relay_json = relay_res.json()
+        except Exception:
+            relay_json = {"raw": relay_res.text}
+        break
+
+    if relay_res is None:
+        return None, "Relay forward failed: no response"
 
     if relay_res.status_code >= 400 or not relay_json.get("ok", False):
-        return None, relay_json.get("error", f"Relay forward failed with status {relay_res.status_code}")
+        if relay_json.get("error"):
+            return None, relay_json.get("error")
+        if relay_json.get("raw"):
+            raw = str(relay_json.get("raw"))[:300]
+            return None, f"Relay forward failed with status {relay_res.status_code}: {raw}"
+        return None, f"Relay forward failed with status {relay_res.status_code}"
 
     return relay_json.get("forwarded_response"), None
 
