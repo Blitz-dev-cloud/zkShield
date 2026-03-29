@@ -1,7 +1,7 @@
 import crypto from "node:crypto"
 import path from "node:path"
 import { NextResponse } from "next/server"
-import { readJsonFile, resolveRepoRoot, runBashScript, tailLogs } from "@/lib/workflow"
+import { fetchWithRetries, readJsonFile, resolveRepoRoot, runBashScript, tailLogs } from "@/lib/workflow"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -189,30 +189,34 @@ export async function POST(request: Request) {
     const signatureInput = `${sessionId}|${sequence}|${nonce}|${timestamp}|${payloadHash}`
     const signature = crypto.createHmac("sha256", sessionKey).update(signatureInput).digest("hex")
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15_000)
-
     let gatewayResponse: Response
     try {
-      gatewayResponse = await fetch(gatewayUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          payload,
-          destination,
-          session_id: sessionId,
-          ml_proof: mlProof,
-          packet_meta: {
-            sequence,
-            nonce,
-            timestamp,
-            signature,
+      gatewayResponse = await fetchWithRetries(
+        gatewayUrl,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        }),
-        signal: controller.signal,
-      })
+          body: JSON.stringify({
+            payload,
+            destination,
+            session_id: sessionId,
+            ml_proof: mlProof,
+            packet_meta: {
+              sequence,
+              nonce,
+              timestamp,
+              signature,
+            },
+          }),
+        },
+        {
+          retries: 4,
+          timeoutMs: 25_000,
+          retryDelayMs: 1_500,
+        },
+      )
     } catch (error) {
       const message = error instanceof Error ? error.message : "Gateway request failed"
       return NextResponse.json(
@@ -225,8 +229,6 @@ export async function POST(request: Request) {
         },
         { status: 502 },
       )
-    } finally {
-      clearTimeout(timeout)
     }
 
     const responseText = await gatewayResponse.text()

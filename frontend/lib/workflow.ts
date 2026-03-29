@@ -71,3 +71,57 @@ export function tailLogs(logs: string, maxChars = 6000): string {
   if (logs.length <= maxChars) return logs
   return logs.slice(logs.length - maxChars)
 }
+
+type RetryFetchOptions = {
+  retries?: number
+  timeoutMs?: number
+  retryDelayMs?: number
+}
+
+const RETRYABLE_HTTP_STATUSES = new Set([502, 503, 504])
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export async function fetchWithRetries(
+  url: string,
+  init: RequestInit,
+  options: RetryFetchOptions = {},
+): Promise<Response> {
+  const retries = options.retries ?? 4
+  const timeoutMs = options.timeoutMs ?? 30_000
+  const retryDelayMs = options.retryDelayMs ?? 1_500
+
+  let lastError: unknown = null
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      const response = await fetch(url, {
+        ...init,
+        signal: controller.signal,
+      })
+
+      if (RETRYABLE_HTTP_STATUSES.has(response.status) && attempt < retries) {
+        await sleep(retryDelayMs * (attempt + 1))
+        continue
+      }
+
+      return response
+    } catch (error) {
+      lastError = error
+      if (attempt < retries) {
+        await sleep(retryDelayMs * (attempt + 1))
+        continue
+      }
+      throw error
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
+  throw (lastError instanceof Error ? lastError : new Error("Gateway request failed"))
+}

@@ -1,7 +1,7 @@
 import crypto from "node:crypto"
 import path from "node:path"
 import { NextResponse } from "next/server"
-import { readJsonFile, resolveRepoRoot, runBashScript, tailLogs } from "@/lib/workflow"
+import { fetchWithRetries, readJsonFile, resolveRepoRoot, runBashScript, tailLogs } from "@/lib/workflow"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -77,11 +77,19 @@ export async function POST(request: Request) {
       )
     }
 
-    const gatewayRes = await fetch(gatewayUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ auth_proof: authProof, auth_public: authPublic }),
-    })
+    const gatewayRes = await fetchWithRetries(
+      gatewayUrl,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auth_proof: authProof, auth_public: authPublic }),
+      },
+      {
+        retries: 4,
+        timeoutMs: 25_000,
+        retryDelayMs: 1_500,
+      },
+    )
 
     const gatewayData = (await gatewayRes.json().catch(() => ({}))) as {
       session_id?: string
