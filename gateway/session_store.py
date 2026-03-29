@@ -6,6 +6,7 @@ import hashlib
 from typing import Dict, Any, Optional
 
 import redis
+from redis.exceptions import RedisError
 
 
 def _require_env(name: str) -> str:
@@ -118,15 +119,29 @@ def verify_and_update_packet_envelope(session_id: str, payload_hash: str, packet
     if not hmac.compare_digest(expected_sig, signature):
         return False, "Invalid packet signature"
 
-    result = _redis.eval(
-        _ATOMIC_REPLAY_SCRIPT,
-        2,
-        _session_key(session_id),
-        _nonce_key(session_id),
-        sequence,
-        nonce,
-        NONCE_TTL_SECONDS,
-    )
+    try:
+        result = _redis.eval(
+            _ATOMIC_REPLAY_SCRIPT,
+            2,
+            _session_key(session_id),
+            _nonce_key(session_id),
+            sequence,
+            nonce,
+            NONCE_TTL_SECONDS,
+        )
+    except RedisError:
+        # Fallback path for Redis providers/environments where EVAL is disabled.
+        last_sequence = int(session.get("last_sequence", "0"))
+        if sequence <= last_sequence:
+            return False, "Replay detected: sequence must be strictly increasing"
+
+        if _redis.sismember(_nonce_key(session_id), nonce):
+            return False, "Replay detected: nonce already used"
+
+        _redis.hset(_session_key(session_id), mapping={"last_sequence": str(sequence)})
+        _redis.sadd(_nonce_key(session_id), nonce)
+        _redis.expire(_nonce_key(session_id), NONCE_TTL_SECONDS)
+        result = "OK"
 
     if result == "REPLAY_SEQUENCE":
         return False, "Replay detected: sequence must be strictly increasing"
