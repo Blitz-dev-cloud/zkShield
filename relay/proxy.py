@@ -21,6 +21,11 @@ def _require_env(name: str) -> str:
 FORWARD_SIGNING_KEY = _require_env("ZKSHIELD_FORWARD_SIGNING_KEY")
 FORWARD_TTL_SECONDS = int(os.environ.get("ZKSHIELD_FORWARD_TTL_SECONDS", "30"))
 ALLOWED_HOSTS_RAW = _require_env("ZKSHIELD_RELAY_ALLOWED_HOSTS")
+ALLOW_ANY_DESTINATION = os.environ.get("ZKSHIELD_RELAY_ALLOW_ANY", "false").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 
 def _allowed_hosts():
@@ -28,12 +33,15 @@ def _allowed_hosts():
     hosts = set(raw)
     if not hosts:
         raise RuntimeError("ZKSHIELD_RELAY_ALLOWED_HOSTS must include at least one hostname")
-    if "*" in hosts:
+    if "*" in hosts and not ALLOW_ANY_DESTINATION:
         raise RuntimeError("Wildcard '*' is not allowed for ZKSHIELD_RELAY_ALLOWED_HOSTS in production mode")
     return hosts
 
 
 def _destination_allowed(destination: str) -> bool:
+    if ALLOW_ANY_DESTINATION:
+        return True
+
     try:
         parsed = urlparse(destination)
     except Exception:
