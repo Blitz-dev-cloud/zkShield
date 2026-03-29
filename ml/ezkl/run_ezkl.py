@@ -14,15 +14,18 @@ PROOF_PATH    = "ml/ezkl/proof.json"
 CIRCUIT_PATH  = "ml/ezkl/model.compiled"
 
 print("[1/7] Generating settings...")
-ezkl.gen_settings(MODEL_PATH, SETTINGS_PATH)
+if not os.path.exists(SETTINGS_PATH):
+    ezkl.gen_settings(MODEL_PATH, SETTINGS_PATH)
 print("Settings done")
 
 print("[2/7] Calibrating...")
-ezkl.calibrate_settings(INPUT_PATH, MODEL_PATH, SETTINGS_PATH, "resources")
+if not os.path.exists(CIRCUIT_PATH):
+    ezkl.calibrate_settings(INPUT_PATH, MODEL_PATH, SETTINGS_PATH, "resources")
 print("Calibration done")
 
 print("[3/7] Compiling circuit...")
-ezkl.compile_circuit(MODEL_PATH, CIRCUIT_PATH, SETTINGS_PATH)
+if not os.path.exists(CIRCUIT_PATH):
+    ezkl.compile_circuit(MODEL_PATH, CIRCUIT_PATH, SETTINGS_PATH)
 print("Circuit done")
 
 print("[4/7] Getting SRS...")
@@ -34,7 +37,8 @@ if not os.path.exists(SRS_PATH):
 print("SRS done")
 
 print("[5/7] Setup keys...")
-ezkl.setup(CIRCUIT_PATH, VK_PATH, PK_PATH, srs_path=SRS_PATH)
+if not os.path.exists(VK_PATH) or not os.path.exists(PK_PATH):
+    ezkl.setup(CIRCUIT_PATH, VK_PATH, PK_PATH, srs_path=SRS_PATH)
 print("Keys done")
 
 print("[6/7] Generating witness...")
