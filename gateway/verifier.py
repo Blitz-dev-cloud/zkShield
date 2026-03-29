@@ -4,6 +4,12 @@ import ezkl
 import tempfile
 import os
 
+SKIP_ML_VERIFY = os.environ.get("ZKSHIELD_SKIP_ML_VERIFY", "false").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 AUTH_VK_PATH = "zk-setup/auth_zkml_vk.json"
 ML_SETTINGS_PATH = "ml/ezkl/settings.json"
 ML_VK_PATH = "ml/ezkl/vk.key"
@@ -47,6 +53,9 @@ def verify_auth_proof(auth_proof_obj, auth_public_obj):
 
 def verify_ml_proof(ml_proof_obj):
     """Verify packet safety proof via EZKL."""
+    if SKIP_ML_VERIFY:
+        return True, "ML proof verification skipped (demo mode)"
+
     with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as proof_file:
         json.dump(ml_proof_obj, proof_file)
         proof_file_path = proof_file.name
