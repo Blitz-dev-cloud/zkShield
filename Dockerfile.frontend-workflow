@@ -1,0 +1,30 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Node + npm are required for Next.js and compute_inputs.js; snarkjs is required for Groth16 proof/verify scripts.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl nodejs npm \
+    && npm install -g snarkjs \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.workflow.txt /app/requirements.workflow.txt
+RUN pip install --no-cache-dir -r /app/requirements.workflow.txt
+
+# Install root JS deps used by scripts/compute_inputs.js (circomlibjs).
+COPY package.json /app/package.json
+RUN npm install
+
+# Install frontend deps and build app.
+COPY frontend/package.json /app/frontend/package.json
+RUN cd frontend && npm install
+
+COPY . /app
+RUN cd frontend && npm run build
+
+EXPOSE 3000
+
+CMD ["bash", "-lc", "cd frontend && npm run start"]

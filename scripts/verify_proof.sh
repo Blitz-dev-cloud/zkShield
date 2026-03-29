@@ -15,7 +15,24 @@ snarkjs groth16 verify \
     proofs/auth_proof.json
 
 echo "[2/2] Verifying ML proof (EZKL)..."
-source "$ROOT_DIR/venv/bin/activate"
+resolve_py_env() {
+    if [ -f "$ROOT_DIR/.venv/bin/activate" ]; then
+        echo "$ROOT_DIR/.venv/bin/activate"
+        return
+    fi
+    if [ -f "$ROOT_DIR/venv/bin/activate" ]; then
+        echo "$ROOT_DIR/venv/bin/activate"
+        return
+    fi
+    echo ""
+}
+
+PY_ENV="$(resolve_py_env)"
+if [ -n "$PY_ENV" ]; then
+    # shellcheck disable=SC1090
+    source "$PY_ENV"
+fi
+
 python3 -c "
 import ezkl
 import sys
