@@ -42,6 +42,11 @@ def ingest():
     print("[receiver] packet received")
     print(f"[receiver] sequence={packet_meta.get('sequence')} nonce={packet_meta.get('nonce')}")
     print(f"[receiver] payload_hash={payload_hash}")
+    try:
+        print("[receiver] payload_raw=")
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    except Exception:
+        print(f"[receiver] payload_raw={payload}")
 
     return jsonify(
         {

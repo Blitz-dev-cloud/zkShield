@@ -151,7 +151,6 @@ export default function TransferPage() {
           sessionId,
           sessionKey,
           packetSequence,
-          gatewayUrl: "http://127.0.0.1:5001/packet",
           regenerateMlProof: true,
         }),
       })
